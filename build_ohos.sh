@@ -5,49 +5,50 @@ set -e
 echo "🌟 浮生音乐 · 鸿蒙版构建"
 echo "========================"
 
-# 检查 Flutter
-if ! command -v flutter &> /dev/null; then
-    echo "❌ Flutter 未安装"
-    echo "   请使用华为 Flutter ohos 分支："
-    echo "   git clone -b stable https://gitee.com/openharmony-sig/flutter.git"
-    exit 1
+# 检查 hvigor
+if ! command -v hvigor &> /dev/null; then
+    echo "📦 安装 hvigor-cli..."
+    npm install -g @ohos/hvigor-cli
 fi
 
-# 检查是否启用 ohos
-if ! flutter config | grep -q "enable-ohos: true"; then
-    echo "⚙️  正在启用 ohos 支持..."
-    flutter config --enable-ohos
+# 检查 ohpm
+if ! command -v ohpm &> /dev/null; then
+    echo "📦 安装 ohpm-cli..."
+    npm install -g @ohos/ohpm-cli
 fi
-
-# 清理
-echo "🧹 清理..."
-flutter clean
 
 # 安装依赖
 echo "📦 安装依赖..."
-flutter pub get
+ohpm install
 
-# 分析代码
-echo "🔍 代码分析..."
-flutter analyze --no-fatal-infos || true
+# 构建未签名包
+echo "🏗️  构建未签名 HAP..."
+hvigor clean
+hvigor assembleRelease -Psigned=false
 
-# 构建
-BUILD_MODE="${1:-debug}"
-echo "🏗️  构建 HAP ($BUILD_MODE)..."
+UNSIGNED_HAP="entry/build/default/outputs/default/entry-default-unsigned.hap"
+echo "✅ 未签名包: $UNSIGNED_HAP"
 
-case "$BUILD_MODE" in
-    release)
-        flutter build hap --release
-        ;;
-    profile)
-        flutter build hap --profile
-        ;;
-    *)
-        flutter build hap --debug
-        ;;
-esac
+# 签名（需要证书文件）
+if [ -f "signing/release.p12" ] && [ -f "signing/release.cer" ] && [ -f "signing/release.p7b" ]; then
+    echo "🔐 签名中..."
+    java -jar hapsigntoolv2.jar sign \
+        -mode localjks \
+        -privatekey "${KEY_ALIAS:-debug}" \
+        -inputFile "$UNSIGNED_HAP" \
+        -outputFile "entry/build/default/outputs/default/entry-signed.hap" \
+        -signAlg SHA256withECDSA \
+        -keystore signing/release.p12 \
+        -keystorepasswd "${STORE_PWD:-123456}" \
+        -keyaliaspasswd "${KEY_PWD:-123456}" \
+        -profile signing/release.p7b \
+        -certpath signing/release.cer \
+        -profileSigned 1
+    echo "✅ 签名包: entry/build/default/outputs/default/entry-signed.hap"
+else
+    echo "⚠️  签名证书不存在 (signing/目录)，跳过签名"
+    echo "   未签名包: $UNSIGNED_HAP"
+fi
 
 echo ""
-echo "✅ 构建完成！"
-echo "📂 输出目录: build/outputs/"
-find build/ -name "*.hap" -o -name "*.app" 2>/dev/null
+echo "🎉 构建完成！"

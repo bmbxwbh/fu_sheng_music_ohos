@@ -7,101 +7,85 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  FLUTTER_VERSION: '3.22.0'
-  JAVA_VERSION: '17'
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      - name: Setup Java
+      - name: Setup Java 11
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: '11'
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
-      - name: Install Ohpm (OpenHarmony Package Manager)
-        run: |
-          # 安装 ohpm-cli
-          curl -fsSL https://ohpm.openharmony.cn/ohpm/cli/install.sh | bash
-          echo "$HOME/.ohpm/bin" >> $GITHUB_PATH
+      - name: Install HarmonyOS CLI tools
+        run: npm install -g @ohos/hvigor-cli @ohos/ohpm-cli
 
-      - name: Setup HarmonyOS SDK
+      - name: Restore signing certificates
         env:
-          HOS_SDK_URL: ${{ secrets.HOS_SDK_URL }}
+          HARMONY_RELEASE_P12_BASE64: ${{ secrets.HARMONY_RELEASE_P12_BASE64 }}
+          HARMONY_RELEASE_CER_BASE64: ${{ secrets.HARMONY_RELEASE_CER_BASE64 }}
+          HARMONY_RELEASE_P7B_BASE64: ${{ secrets.HARMONY_RELEASE_P7B_BASE64 }}
         run: |
-          # 从华为开发者官网下载 HarmonyOS SDK 命令行工具
-          # 需要在仓库 Secrets 中配置 HOS_SDK_URL
-          if [ -z "$HOS_SDK_URL" ]; then
-            echo "::error::请在仓库 Settings > Secrets 中配置 HOS_SDK_URL（HarmonyOS SDK 下载地址）"
-            exit 1
-          fi
-          mkdir -p $HOME/huawei/sdk
-          curl -fsSL "$HOS_SDK_URL" -o /tmp/hos-sdk.zip
-          unzip -q /tmp/hos-sdk.zip -d $HOME/huawei/sdk/
-          echo "HOS_SDK_HOME=$HOME/huawei/sdk" >> $GITHUB_ENV
-          echo "$HOME/huawei/sdk/toolchains" >> $GITHUB_PATH
-
-      - name: Setup Flutter (ohos)
-        run: |
-          # 使用华为维护的 Flutter ohos 分支
-          git clone --depth 1 -b stable https://gitee.com/openharmony-sig/flutter.git $HOME/flutter-ohos
-          echo "$HOME/flutter-ohos/bin" >> $GITHUB_PATH
-          export PATH="$HOME/flutter-ohos/bin:$PATH"
-          flutter --version
-          flutter config --enable-ohos
-
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            .dart_tool/
-            .pub-cache/
-          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
+          mkdir -p signing
+          echo "$HARMONY_RELEASE_P12_BASE64" | base64 -d > signing/release.p12
+          echo "$HARMONY_RELEASE_CER_BASE64" | base64 -d > signing/release.cer
+          echo "$HARMONY_RELEASE_P7B_BASE64" | base64 -d > signing/release.p7b
 
       - name: Install dependencies
-        run: flutter pub get
+        run: ohpm install
 
-      - name: Analyze
-        run: flutter analyze --no-fatal-infos
-        continue-on-error: true
+      - name: Build unsigned HAP
+        run: |
+          hvigor clean
+          hvigor assembleRelease -Psigned=false
 
-      - name: Build HAP (debug)
-        if: github.event_name == 'pull_request'
-        run: flutter build hap --debug
+      - name: Sign HAP
+        env:
+          KEY_ALIAS: ${{ secrets.HARMONY_KEY_ALIAS }}
+          STORE_PWD: ${{ secrets.HARMONY_STORE_PWD }}
+          KEY_PWD: ${{ secrets.HARMONY_KEY_PWD }}
+        run: |
+          java -jar hapsigntoolv2.jar sign \
+            -mode localjks \
+            -privatekey "$KEY_ALIAS" \
+            -inputFile entry/build/default/outputs/default/entry-default-unsigned.hap \
+            -outputFile entry/build/default/outputs/default/entry-signed.hap \
+            -signAlg SHA256withECDSA \
+            -keystore signing/release.p12 \
+            -keystorepasswd "$STORE_PWD" \
+            -keyaliaspasswd "$KEY_PWD" \
+            -profile signing/release.p7b \
+            -certpath signing/release.cer \
+            -profileSigned 1
 
-      - name: Build HAP (release)
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        run: flutter build hap --release
-
-      - name: Build HAP (profile)
-        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
-        run: flutter build hap --profile
-
-      - name: Upload HAP artifact
+      - name: Upload signed HAP
         uses: actions/upload-artifact@v4
         with:
           name: fu-sheng-music-ohos-${{ github.sha }}
-          path: |
-            build/**/*.hap
-            build/**/*.app
+          path: entry/build/default/outputs/default/entry-signed.hap
           retention-days: 30
 
-      - name: Upload to Release
+      - name: Upload unsigned HAP (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fu-sheng-music-ohos-unsigned-${{ github.sha }}
+          path: entry/build/default/outputs/default/entry-default-unsigned.hap
+          retention-days: 7
+
+      - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            build/**/*.hap
+          files: entry/build/default/outputs/default/entry-signed.hap
           generate_release_notes: true

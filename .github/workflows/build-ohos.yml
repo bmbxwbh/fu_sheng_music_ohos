@@ -84,7 +84,20 @@ jobs:
         continue-on-error: true
 
       - name: Build HAP
-        run: flutter build hap --release
+        run: |
+          echo "=== SDK 检测调试 ==="
+          echo "OHOS_HOME=$OHOS_HOME"
+          echo "OHOS_SDK_HOME=$OHOS_SDK_HOME"
+          ls -la "$OHOS_HOME/"
+          echo "=== 检查 12 目录 ==="
+          ls -laR "$OHOS_HOME/12/"
+          echo "=== 开始构建 ==="
+          flutter build hap --release -v 2>&1 | tee /tmp/build.log | tail -30
+          BUILD_EXIT=$?
+          if [ $BUILD_EXIT -ne 0 ]; then
+            echo "=== SDK 相关日志 ==="
+            grep -i "sdk\|hmos\|ohos\|hdc\|locate" /tmp/build.log | head -20
+          fi
 
       - name: Find HAP file
         id: find_hap

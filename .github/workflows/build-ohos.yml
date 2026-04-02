@@ -27,7 +27,7 @@ jobs:
 
       - name: Setup Flutter (ohos)
         run: |
-          git clone --depth 1 -b 3.22.0-ohos "https://gitcode.com/openharmony-tpc/flutter_flutter.git" "$HOME/flutter-ohos"
+          git clone --depth 1 -b br_3.27.4-ohos-1.0.4 "https://gitcode.com/openharmony-tpc/flutter_flutter.git" "$HOME/flutter-ohos"
           echo "$HOME/flutter-ohos/bin" >> $GITHUB_PATH
           export PATH="$HOME/flutter-ohos/bin:$PATH"
           flutter config --enable-ohos

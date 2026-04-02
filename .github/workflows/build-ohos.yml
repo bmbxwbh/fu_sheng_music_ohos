@@ -38,17 +38,16 @@ jobs:
           mkdir -p $HOME/ohos-sdk
           tar xzf /tmp/ohos-sdk.tar.gz -C $HOME/ohos-sdk/
           rm /tmp/ohos-sdk.tar.gz
-          # 自动检测 SDK 目录结构
-          SDK_DIR=$(ls -d $HOME/ohos-sdk/*/ 2>/dev/null | head -1)
-          if [ -n "$SDK_DIR" ]; then
-            export HOS_SDK_HOME="${SDK_DIR%/}"
-          else
-            export HOS_SDK_HOME="$HOME/ohos-sdk"
-          fi
-          echo "HOS_SDK_HOME=$HOS_SDK_HOME" >> $GITHUB_ENV
-          echo "DEVECO_SDK_HOME=$HOS_SDK_HOME" >> $GITHUB_ENV
-          echo "SDK path: $HOS_SDK_HOME"
-          ls "$HOS_SDK_HOME/"
+          echo "=== SDK 目录结构 ==="
+          find $HOME/ohos-sdk -maxdepth 3 -type d | head -40
+          echo "=== SDK 文件 ==="
+          find $HOME/ohos-sdk -maxdepth 4 -name "*.json" -o -name "sdk" -o -name "api*" | head -20
+          # 查找可能的 SDK 根目录
+          for d in "$HOME/ohos-sdk" "$HOME/ohos-sdk/linux" "$HOME/ohos-sdk/linux/sdk" "$HOME/ohos-sdk/sdk"; do
+            if [ -d "$d" ]; then
+              echo "检查: $d → $(ls $d/ 2>/dev/null | tr '\n' ' ')"
+            fi
+          done
 
       - name: Download signing tools
         run: |

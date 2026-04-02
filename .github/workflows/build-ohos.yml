@@ -33,21 +33,27 @@ jobs:
 
       - name: Setup OpenHarmony SDK
         run: |
-          echo "Downloading OpenHarmony SDK (2.5GB, may take a while)..."
+          echo "Downloading OpenHarmony SDK (2.5GB)..."
           curl -fsSL --retry 3 "https://mirrors.huaweicloud.com/harmonyos/os/6.1-Release/ohos-sdk-windows_linux-public.tar.gz" -o /tmp/ohos-sdk.tar.gz
           mkdir -p $HOME/ohos-sdk
           tar xzf /tmp/ohos-sdk.tar.gz -C $HOME/ohos-sdk/
           rm /tmp/ohos-sdk.tar.gz
-          echo "=== SDK 目录结构 ==="
-          find $HOME/ohos-sdk -maxdepth 3 -type d | head -40
-          echo "=== SDK 文件 ==="
-          find $HOME/ohos-sdk -maxdepth 4 -name "*.json" -o -name "sdk" -o -name "api*" | head -20
-          # 查找可能的 SDK 根目录
-          for d in "$HOME/ohos-sdk" "$HOME/ohos-sdk/linux" "$HOME/ohos-sdk/linux/sdk" "$HOME/ohos-sdk/sdk"; do
-            if [ -d "$d" ]; then
-              echo "检查: $d → $(ls $d/ 2>/dev/null | tr '\n' ' ')"
-            fi
+          # 解压 linux 目录下的所有 zip
+          echo "Extracting SDK components..."
+          cd $HOME/ohos-sdk/linux
+          for z in *.zip; do
+            echo "  Extracting $z..."
+            unzip -qo "$z" -d . 2>/dev/null || true
           done
+          rm -f *.zip
+          cd $GITHUB_WORKSPACE
+          echo "=== SDK 目录结构 ==="
+          ls -la $HOME/ohos-sdk/linux/
+          echo "=== 深层目录 ==="
+          find $HOME/ohos-sdk/linux -maxdepth 3 -type d | head -30
+          export HOS_SDK_HOME="$HOME/ohos-sdk/linux"
+          echo "HOS_SDK_HOME=$HOS_SDK_HOME" >> $GITHUB_ENV
+          echo "DEVECO_SDK_HOME=$HOS_SDK_HOME" >> $GITHUB_ENV
 
       - name: Download signing tools
         run: |

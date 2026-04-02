@@ -14,7 +14,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 import 'package:flutter/foundation.dart';
-import 'package:flutter_js/flutter_js.dart';
+import 'package:flutter_js_ohos/flutter_js.dart';
 import 'musicfree_preload.dart';
 import 'plugin_format_detector.dart';
 

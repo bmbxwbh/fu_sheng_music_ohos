@@ -4,7 +4,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_js/flutter_js.dart';
+import 'package:flutter_js_ohos/flutter_js.dart';
 import 'package:http/http.dart' as http;
 import '../../utils/app_logger.dart';
 import 'user_api_info.dart';

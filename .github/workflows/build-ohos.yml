@@ -47,13 +47,23 @@ jobs:
           done
           rm -f *.zip
           cd $GITHUB_WORKSPACE
-          echo "=== SDK 目录结构 ==="
-          ls -la $HOME/ohos-sdk/linux/
-          echo "=== 深层目录 ==="
-          find $HOME/ohos-sdk/linux -maxdepth 3 -type d | head -30
-          export HOS_SDK_HOME="$HOME/ohos-sdk/linux"
-          echo "HOS_SDK_HOME=$HOS_SDK_HOME" >> $GITHUB_ENV
-          echo "DEVECO_SDK_HOME=$HOS_SDK_HOME" >> $GITHUB_ENV
+          # 重组目录结构：Flutter ohos 期望 sdkPath/12/toolchains/hdc
+          # 查找 hdc 位置并创建符号链接
+          HDC_PATH=$(find $HOME/ohos-sdk -name "hdc" -type f 2>/dev/null | head -1)
+          if [ -n "$HDC_PATH" ]; then
+            HDC_DIR=$(dirname "$(dirname "$HDC_PATH")")
+            # 创建 API 版本目录结构
+            mkdir -p $HOME/ohos-sdk/linux/12/toolchains
+            ln -sf "$HDC_DIR"/* $HOME/ohos-sdk/linux/12/toolchains/ 2>/dev/null || cp -r "$HDC_DIR"/* $HOME/ohos-sdk/linux/12/toolchains/
+            echo "hdc found at: $HDC_PATH"
+          fi
+          echo "=== SDK 结构 ==="
+          find $HOME/ohos-sdk/linux -maxdepth 3 -type d | head -20
+          # 使用 OHOS_HOME（OpenHarmony SDK 专用变量）
+          export OHOS_HOME="$HOME/ohos-sdk/linux"
+          echo "OHOS_HOME=$OHOS_HOME" >> $GITHUB_ENV
+          echo "OHOS_SDK_HOME=$OHOS_HOME" >> $GITHUB_ENV
+          echo "OHOS_HOME: $OHOS_HOME"
 
       - name: Download signing tools
         run: |

@@ -19,7 +19,7 @@ dependencies:
   encrypt: ^5.0.3
   crypto: ^3.0.7
   extended_image: ^8.0.3
-  file_picker: ^8.0.0+1
+  # file_picker: ^8.0.0+1  # 由 file_picker_ohos 提供
   # flutter_js: ^0.8.1  # 由 flutter_js_ohos 提供，不需要单独依赖
   url_launcher: ^6.3.1
 

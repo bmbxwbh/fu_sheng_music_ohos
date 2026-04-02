@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../utils/cached_network_image_compat.dart';
 import '../models/song_model.dart';
 import '../models/enums.dart';
 import '../store/player_store.dart';

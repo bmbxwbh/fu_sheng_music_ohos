@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/settings/setting_store.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../utils/cached_network_image_compat.dart';
 import '../../models/enums.dart';
 import '../../models/playlist_info.dart';
 import '../../utils/page_transitions.dart';

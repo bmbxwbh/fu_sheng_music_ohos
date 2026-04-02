@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../utils/cached_network_image_compat.dart';
 import '../store/player_store.dart';
 import '../screens/play_detail/play_detail_screen.dart';
 import '../utils/global.dart';

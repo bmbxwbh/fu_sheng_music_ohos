@@ -26,8 +26,15 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
 
       - name: Setup Flutter (ohos)
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
-          git clone --depth 1 -b stable https://gitee.com/openharmony-sig/flutter.git $HOME/flutter-ohos
+          if [ -z "$GITEE_TOKEN" ]; then
+            echo "::error::请在仓库 Secrets 中配置 GITEE_TOKEN（Gitee 个人令牌，用于克隆 Flutter ohos SDK）"
+            echo "::notice::获取方式：Gitee → 设置 → 私人令牌 → 生成新令牌（只需 repo 读取权限）"
+            exit 1
+          fi
+          git clone --depth 1 -b stable "https://oauth2:${GITEE_TOKEN}@gitee.com/openharmony-sig/flutter.git" "$HOME/flutter-ohos"
           echo "$HOME/flutter-ohos/bin" >> $GITHUB_PATH
           export PATH="$HOME/flutter-ohos/bin:$PATH"
           flutter config --enable-ohos

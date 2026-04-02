@@ -45,20 +45,23 @@ jobs:
           # 查找 hdc
           HDC_PATH=$(find $HOME/ohos-sdk -name "hdc" -type f 2>/dev/null | head -1)
           echo "hdc: $HDC_PATH"
-          # hdc 在 toolchains/hdc，toolchains 的父目录是 linux
-          # Flutter 要求 sdkPath/12/toolchains/hdc 结构
-          # 所以在 linux/ 下创建 12/toolchains/ 并把 toolchains 内容复制进去
           TOOLCHAINS_SRC=$(dirname "$HDC_PATH")
           echo "toolchains src: $TOOLCHAINS_SRC"
+          # 创建 API 版本目录结构
           mkdir -p $HOME/ohos-sdk/linux/12/toolchains
           cp -r "$TOOLCHAINS_SRC"/* $HOME/ohos-sdk/linux/12/toolchains/
-          echo "=== 最终结构 ==="
-          ls -la $HOME/ohos-sdk/linux/12/toolchains/ | head -10
-          echo "=== hdc 验证 ==="
+          # 创建 sdk-pkg.json（HmosSdk 需要这个文件来识别 API 版本）
+          mkdir -p $HOME/ohos-sdk/linux/12
+          cat > $HOME/ohos-sdk/linux/12/sdk-pkg.json << 'EOF'
+          {"data":{"apiVersion":"12"}}
+          EOF
+          echo "=== 目录结构 ==="
+          ls -la $HOME/ohos-sdk/linux/
+          echo "=== 12/toolchains/hdc 验证 ==="
           ls -la $HOME/ohos-sdk/linux/12/toolchains/hdc
-          export OHOS_HOME="$HOME/ohos-sdk/linux"
-          echo "OHOS_HOME=$OHOS_HOME" >> $GITHUB_ENV
-          echo "OHOS_SDK_HOME=$OHOS_HOME" >> $GITHUB_ENV
+          # build_hap.dart 检查 globals.hmosSdk，通过 HmosSdk 查找 HOS_SDK_HOME
+          export HOS_SDK_HOME="$HOME/ohos-sdk/linux"
+          echo "HOS_SDK_HOME=$HOS_SDK_HOME" >> $GITHUB_ENV
 
       - name: Download signing tools
         run: |
@@ -86,18 +89,13 @@ jobs:
       - name: Build HAP
         run: |
           echo "=== SDK 检测调试 ==="
-          echo "OHOS_HOME=$OHOS_HOME"
-          echo "OHOS_SDK_HOME=$OHOS_SDK_HOME"
-          ls -la "$OHOS_HOME/"
-          echo "=== 检查 12 目录 ==="
-          ls -laR "$OHOS_HOME/12/"
+          echo "HOS_SDK_HOME=$HOS_SDK_HOME"
+          ls -la "$HOS_SDK_HOME/"
+          ls -la "$HOS_SDK_HOME/12/"
+          echo "=== sdk-pkg.json ==="
+          cat "$HOS_SDK_HOME/12/sdk-pkg.json"
           echo "=== 开始构建 ==="
-          flutter build hap --release -v 2>&1 | tee /tmp/build.log | tail -30
-          BUILD_EXIT=$?
-          if [ $BUILD_EXIT -ne 0 ]; then
-            echo "=== SDK 相关日志 ==="
-            grep -i "sdk\|hmos\|ohos\|hdc\|locate" /tmp/build.log | head -20
-          fi
+          flutter build hap --release
 
       - name: Find HAP file
         id: find_hap

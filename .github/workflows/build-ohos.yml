@@ -1,0 +1,107 @@
+name: Build HarmonyOS HAP
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  FLUTTER_VERSION: '3.22.0'
+  JAVA_VERSION: '17'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Ohpm (OpenHarmony Package Manager)
+        run: |
+          # 安装 ohpm-cli
+          curl -fsSL https://ohpm.openharmony.cn/ohpm/cli/install.sh | bash
+          echo "$HOME/.ohpm/bin" >> $GITHUB_PATH
+
+      - name: Setup HarmonyOS SDK
+        env:
+          HOS_SDK_URL: ${{ secrets.HOS_SDK_URL }}
+        run: |
+          # 从华为开发者官网下载 HarmonyOS SDK 命令行工具
+          # 需要在仓库 Secrets 中配置 HOS_SDK_URL
+          if [ -z "$HOS_SDK_URL" ]; then
+            echo "::error::请在仓库 Settings > Secrets 中配置 HOS_SDK_URL（HarmonyOS SDK 下载地址）"
+            exit 1
+          fi
+          mkdir -p $HOME/huawei/sdk
+          curl -fsSL "$HOS_SDK_URL" -o /tmp/hos-sdk.zip
+          unzip -q /tmp/hos-sdk.zip -d $HOME/huawei/sdk/
+          echo "HOS_SDK_HOME=$HOME/huawei/sdk" >> $GITHUB_ENV
+          echo "$HOME/huawei/sdk/toolchains" >> $GITHUB_PATH
+
+      - name: Setup Flutter (ohos)
+        run: |
+          # 使用华为维护的 Flutter ohos 分支
+          git clone --depth 1 -b stable https://gitee.com/openharmony-sig/flutter.git $HOME/flutter-ohos
+          echo "$HOME/flutter-ohos/bin" >> $GITHUB_PATH
+          export PATH="$HOME/flutter-ohos/bin:$PATH"
+          flutter --version
+          flutter config --enable-ohos
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .dart_tool/
+            .pub-cache/
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+        continue-on-error: true
+
+      - name: Build HAP (debug)
+        if: github.event_name == 'pull_request'
+        run: flutter build hap --debug
+
+      - name: Build HAP (release)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        run: flutter build hap --release
+
+      - name: Build HAP (profile)
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        run: flutter build hap --profile
+
+      - name: Upload HAP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fu-sheng-music-ohos-${{ github.sha }}
+          path: |
+            build/**/*.hap
+            build/**/*.app
+          retention-days: 30
+
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/**/*.hap
+          generate_release_notes: true

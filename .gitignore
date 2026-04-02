@@ -57,3 +57,11 @@ pubspec.lock
 local.properties
 *.iml
 android/.kotlin/
+
+# HarmonyOS / OpenHarmony
+ohos/.hvigor/
+ohos/build/
+ohos/oh_modules/
+ohos/.cxx/
+*.hap
+*.app

@@ -7,6 +7,9 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  JAVA_VERSION: '17'
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,76 +19,84 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Setup Java 11
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '11'
+          java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install HarmonyOS CLI tools
-        run: npm install -g @ohos/hvigor-cli @ohos/ohpm-cli
-
-      - name: Restore signing certificates
-        env:
-          HARMONY_RELEASE_P12_BASE64: ${{ secrets.HARMONY_RELEASE_P12_BASE64 }}
-          HARMONY_RELEASE_CER_BASE64: ${{ secrets.HARMONY_RELEASE_CER_BASE64 }}
-          HARMONY_RELEASE_P7B_BASE64: ${{ secrets.HARMONY_RELEASE_P7B_BASE64 }}
+      - name: Setup Flutter (ohos)
         run: |
-          mkdir -p signing
-          echo "$HARMONY_RELEASE_P12_BASE64" | base64 -d > signing/release.p12
-          echo "$HARMONY_RELEASE_CER_BASE64" | base64 -d > signing/release.cer
-          echo "$HARMONY_RELEASE_P7B_BASE64" | base64 -d > signing/release.p7b
+          git clone --depth 1 -b stable https://gitee.com/openharmony-sig/flutter.git $HOME/flutter-ohos
+          echo "$HOME/flutter-ohos/bin" >> $GITHUB_PATH
+          export PATH="$HOME/flutter-ohos/bin:$PATH"
+          flutter config --enable-ohos
+          flutter --version
+
+      - name: Setup HarmonyOS SDK
+        env:
+          HOS_SDK_URL: ${{ secrets.HOS_SDK_URL }}
+        run: |
+          if [ -z "$HOS_SDK_URL" ]; then
+            echo "::warning::HOS_SDK_URL 未配置，将尝试使用 Flutter 内置工具链"
+          else
+            mkdir -p $HOME/huawei/sdk
+            curl -fsSL "$HOS_SDK_URL" -o /tmp/hos-sdk.zip
+            unzip -q /tmp/hos-sdk.zip -d $HOME/huawei/sdk/
+            echo "DEVECO_SDK_HOME=$HOME/huawei/sdk" >> $GITHUB_ENV
+          fi
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .dart_tool/
+            .pub-cache/
+            build/
+          key: ${{ runner.os }}-ohos-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-ohos-
 
       - name: Install dependencies
-        run: ohpm install
+        run: flutter pub get
 
-      - name: Build unsigned HAP
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+        continue-on-error: true
+
+      - name: Build HAP (debug)
+        if: github.event_name == 'pull_request'
+        run: flutter build hap --debug
+
+      - name: Build HAP (release)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: flutter build hap --release
+
+      - name: Build HAP (profile)
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        run: flutter build hap --profile
+
+      - name: Find HAP file
+        id: find_hap
         run: |
-          hvigor clean
-          hvigor assembleRelease -Psigned=false
+          HAP_FILE=$(find build -name "*.hap" -type f | head -1)
+          if [ -z "$HAP_FILE" ]; then
+            echo "::error::未找到 HAP 文件"
+            exit 1
+          fi
+          echo "hap_path=$HAP_FILE" >> $GITHUB_OUTPUT
+          echo "📦 Found: $HAP_FILE"
 
-      - name: Sign HAP
-        env:
-          KEY_ALIAS: ${{ secrets.HARMONY_KEY_ALIAS }}
-          STORE_PWD: ${{ secrets.HARMONY_STORE_PWD }}
-          KEY_PWD: ${{ secrets.HARMONY_KEY_PWD }}
-        run: |
-          java -jar hapsigntoolv2.jar sign \
-            -mode localjks \
-            -privatekey "$KEY_ALIAS" \
-            -inputFile entry/build/default/outputs/default/entry-default-unsigned.hap \
-            -outputFile entry/build/default/outputs/default/entry-signed.hap \
-            -signAlg SHA256withECDSA \
-            -keystore signing/release.p12 \
-            -keystorepasswd "$STORE_PWD" \
-            -keyaliaspasswd "$KEY_PWD" \
-            -profile signing/release.p7b \
-            -certpath signing/release.cer \
-            -profileSigned 1
-
-      - name: Upload signed HAP
+      - name: Upload HAP artifact
         uses: actions/upload-artifact@v4
         with:
           name: fu-sheng-music-ohos-${{ github.sha }}
-          path: entry/build/default/outputs/default/entry-signed.hap
+          path: ${{ steps.find_hap.outputs.hap_path }}
           retention-days: 30
-
-      - name: Upload unsigned HAP (PR only)
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: fu-sheng-music-ohos-unsigned-${{ github.sha }}
-          path: entry/build/default/outputs/default/entry-default-unsigned.hap
-          retention-days: 7
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: entry/build/default/outputs/default/entry-signed.hap
+          files: ${{ steps.find_hap.outputs.hap_path }}
           generate_release_notes: true

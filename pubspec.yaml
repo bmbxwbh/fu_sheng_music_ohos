@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   provider: ^6.1.5
-  just_audio: ^0.9.46
+  just_audio: ^0.10.5
   audio_session: ^0.2.2
   shared_preferences: ^2.5.4
   http: ^0.13.4

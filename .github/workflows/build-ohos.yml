@@ -16,8 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -33,26 +31,18 @@ jobs:
           flutter config --enable-ohos
           flutter --version
 
-      - name: Setup HarmonyOS SDK
-        env:
-          HOS_SDK_URL: ${{ secrets.HOS_SDK_URL }}
+      - name: Download signing tools
         run: |
-          if [ -z "$HOS_SDK_URL" ]; then
-            echo "::warning::HOS_SDK_URL 未配置，将尝试使用 Flutter 内置工具链"
-          else
-            mkdir -p $HOME/huawei/sdk
-            curl -fsSL "$HOS_SDK_URL" -o /tmp/hos-sdk.zip
-            unzip -q /tmp/hos-sdk.zip -d $HOME/huawei/sdk/
-            echo "DEVECO_SDK_HOME=$HOME/huawei/sdk" >> $GITHUB_ENV
-          fi
+          curl -fsSL "https://mirrors.huaweicloud.com/harmonyos/develop_tools/hapsigntoolv2.jar" -o hapsigntoolv2.jar
+          curl -fsSL "https://mirrors.huaweicloud.com/harmonyos/develop_tools/hmos_app_packing_tool.jar" -o hmos_app_packing_tool.jar
+          echo "✅ 签名工具下载完成"
 
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
           path: |
             .dart_tool/
-            .pub-cache/
-            build/
+            ~/.pub-cache/
           key: ${{ runner.os }}-ohos-${{ hashFiles('pubspec.lock') }}
           restore-keys: |
             ${{ runner.os }}-ohos-

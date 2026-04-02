@@ -1,0 +1,50 @@
+name: fu_sheng_music_ohos
+description: 浮生音乐 - 鸿蒙版 Flutter 跨平台音乐播放器
+publish_to: 'none'
+version: 26.04.02+26040201
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.5
+  just_audio: ^0.9.46
+  audio_session: ^0.1.25
+  shared_preferences: ^2.5.4
+  http: ^1.6.0
+  path_provider: ^2.1.5
+  permission_handler: ^11.4.0
+  encrypt: ^5.0.3
+  crypto: ^3.0.7
+  cached_network_image: ^3.3.1
+  file_picker: ^8.0.0+1
+  flutter_js: ^0.8.1
+  url_launcher: ^6.3.1
+
+  # ===== 鸿蒙适配 =====
+  flutter_js_ohos: ^0.6.8
+  just_audio_harmonyos: ^0.0.1
+  audio_session_harmonyos: ^0.0.1
+  permission_handler_ohos: ^0.0.8
+  file_picker_ohos: ^1.0.1
+  shared_preferences_harmonyos: ^0.0.1
+  url_launcher_harmonyos: ^0.0.1
+  path_provider_harmonyos: ^0.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/script/

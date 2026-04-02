@@ -31,23 +31,22 @@ jobs:
           flutter config --enable-ohos
           flutter --version
 
-      - name: Setup HarmonyOS SDK
-        env:
-          HOS_SDK_URL: ${{ secrets.HOS_SDK_URL }}
+      - name: Setup OpenHarmony SDK
         run: |
-          if [ -z "$HOS_SDK_URL" ]; then
-            echo "::error::请配置 Secret: HOS_SDK_URL"
-            exit 1
+          echo "Downloading OpenHarmony SDK (2.5GB, may take a while)..."
+          curl -fsSL --retry 3 "https://mirrors.huaweicloud.com/harmonyos/os/6.1-Release/ohos-sdk-windows_linux-public.tar.gz" -o /tmp/ohos-sdk.tar.gz
+          mkdir -p $HOME/ohos-sdk
+          tar xzf /tmp/ohos-sdk.tar.gz -C $HOME/ohos-sdk/
+          rm /tmp/ohos-sdk.tar.gz
+          # 自动检测 SDK 目录结构
+          SDK_DIR=$(ls -d $HOME/ohos-sdk/*/ 2>/dev/null | head -1)
+          if [ -n "$SDK_DIR" ]; then
+            export HOS_SDK_HOME="${SDK_DIR%/}"
+          else
+            export HOS_SDK_HOME="$HOME/ohos-sdk"
           fi
-          mkdir -p $HOME/hos-sdk
-          curl -fsSL "$HOS_SDK_URL" -o /tmp/hos-sdk.zip
-          unzip -q /tmp/hos-sdk.zip -d $HOME/hos-sdk/
-          # 自动检测解压目录名
-          SDK_DIR=$(ls -d $HOME/hos-sdk/*/  | head -1)
-          export HOS_SDK_HOME="${SDK_DIR%/}"
           echo "HOS_SDK_HOME=$HOS_SDK_HOME" >> $GITHUB_ENV
           echo "DEVECO_SDK_HOME=$HOS_SDK_HOME" >> $GITHUB_ENV
-          echo "$HOS_SDK_HOME/bin" >> $GITHUB_PATH
           echo "SDK path: $HOS_SDK_HOME"
           ls "$HOS_SDK_HOME/"
 

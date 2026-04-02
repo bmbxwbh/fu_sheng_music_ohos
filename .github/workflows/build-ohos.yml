@@ -38,32 +38,27 @@ jobs:
           mkdir -p $HOME/ohos-sdk
           tar xzf /tmp/ohos-sdk.tar.gz -C $HOME/ohos-sdk/
           rm /tmp/ohos-sdk.tar.gz
-          # 解压 linux 目录下的所有 zip
-          echo "Extracting SDK components..."
           cd $HOME/ohos-sdk/linux
-          for z in *.zip; do
-            echo "  Extracting $z..."
-            unzip -qo "$z" -d . 2>/dev/null || true
-          done
+          for z in *.zip; do unzip -qo "$z" -d . 2>/dev/null || true; done
           rm -f *.zip
           cd $GITHUB_WORKSPACE
-          # 重组目录结构：Flutter ohos 期望 sdkPath/12/toolchains/hdc
-          # 查找 hdc 位置并创建符号链接
+          # 查找 hdc
           HDC_PATH=$(find $HOME/ohos-sdk -name "hdc" -type f 2>/dev/null | head -1)
-          if [ -n "$HDC_PATH" ]; then
-            HDC_DIR=$(dirname "$(dirname "$HDC_PATH")")
-            # 创建 API 版本目录结构
-            mkdir -p $HOME/ohos-sdk/linux/12/toolchains
-            ln -sf "$HDC_DIR"/* $HOME/ohos-sdk/linux/12/toolchains/ 2>/dev/null || cp -r "$HDC_DIR"/* $HOME/ohos-sdk/linux/12/toolchains/
-            echo "hdc found at: $HDC_PATH"
-          fi
-          echo "=== SDK 结构 ==="
-          find $HOME/ohos-sdk/linux -maxdepth 3 -type d | head -20
-          # 使用 OHOS_HOME（OpenHarmony SDK 专用变量）
+          echo "hdc: $HDC_PATH"
+          # hdc 在 toolchains/hdc，toolchains 的父目录是 linux
+          # Flutter 要求 sdkPath/12/toolchains/hdc 结构
+          # 所以在 linux/ 下创建 12/toolchains/ 并把 toolchains 内容复制进去
+          TOOLCHAINS_SRC=$(dirname "$HDC_PATH")
+          echo "toolchains src: $TOOLCHAINS_SRC"
+          mkdir -p $HOME/ohos-sdk/linux/12/toolchains
+          cp -r "$TOOLCHAINS_SRC"/* $HOME/ohos-sdk/linux/12/toolchains/
+          echo "=== 最终结构 ==="
+          ls -la $HOME/ohos-sdk/linux/12/toolchains/ | head -10
+          echo "=== hdc 验证 ==="
+          ls -la $HOME/ohos-sdk/linux/12/toolchains/hdc
           export OHOS_HOME="$HOME/ohos-sdk/linux"
           echo "OHOS_HOME=$OHOS_HOME" >> $GITHUB_ENV
           echo "OHOS_SDK_HOME=$OHOS_HOME" >> $GITHUB_ENV
-          echo "OHOS_HOME: $OHOS_HOME"
 
       - name: Download signing tools
         run: |

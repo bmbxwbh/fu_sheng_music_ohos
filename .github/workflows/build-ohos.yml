@@ -86,14 +86,6 @@ jobs:
         run: flutter analyze --no-fatal-infos
         continue-on-error: true
 
-      - name: Create Ohos platform
-        run: |
-          echo "=== 生成 ohos 平台目录 ==="
-          flutter create --platforms ohos --org com.fusheng --project-name fu_sheng_music_ohos .
-          echo "=== ohos 目录结构 ==="
-          ls -la ohos/
-          ls -la ohos/entry/ 2>/dev/null || echo "⚠️ entry 目录不存在"
-
       - name: Build HAP
         run: |
           echo "=== SDK 检测调试 ==="
